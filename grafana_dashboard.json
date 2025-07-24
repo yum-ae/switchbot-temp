@@ -1,0 +1,171 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "BLE温湿度センサー監視",
+    "tags": ["ble", "sensors", "iot"],
+    "style": "dark",
+    "timezone": "Asia/Tokyo",
+    "panels": [
+      {
+        "id": 1,
+        "title": "温度推移",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "ble_temperature_celsius",
+            "legendFormat": "{{device_name}} ({{device_mac}})",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "温度 (°C)",
+            "min": null,
+            "max": null
+          }
+        ],
+        "xAxis": {
+          "show": true
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 0,
+          "y": 0
+        }
+      },
+      {
+        "id": 2,
+        "title": "湿度推移",
+        "type": "graph",
+        "targets": [
+          {
+            "expr": "ble_humidity_percent",
+            "legendFormat": "{{device_name}} ({{device_mac}})",
+            "refId": "A"
+          }
+        ],
+        "yAxes": [
+          {
+            "label": "湿度 (%)",
+            "min": 0,
+            "max": 100
+          }
+        ],
+        "gridPos": {
+          "h": 8,
+          "w": 12,
+          "x": 12,
+          "y": 0
+        }
+      },
+      {
+        "id": 3,
+        "title": "現在の温度",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "ble_temperature_celsius",
+            "legendFormat": "{{device_name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "celsius",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "blue", "value": null},
+                {"color": "green", "value": 18},
+                {"color": "yellow", "value": 25},
+                {"color": "red", "value": 30}
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 0,
+          "y": 8
+        }
+      },
+      {
+        "id": 4,
+        "title": "現在の湿度",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "ble_humidity_percent",
+            "legendFormat": "{{device_name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 30},
+                {"color": "green", "value": 40},
+                {"color": "yellow", "value": 70},
+                {"color": "red", "value": 80}
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 6,
+          "y": 8
+        }
+      },
+      {
+        "id": 5,
+        "title": "バッテリー残量",
+        "type": "stat",
+        "targets": [
+          {
+            "expr": "ble_battery_percent",
+            "legendFormat": "{{device_name}}",
+            "refId": "A"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent",
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "yellow", "value": 20},
+                {"color": "green", "value": 50}
+              ]
+            }
+          }
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 6,
+          "x": 12,
+          "y": 8
+        }
+      }
+    ],
+    "time": {
+      "from": "now-6h",
+      "to": "now"
+    },
+    "refresh": "30s"
+  }
+}

@@ -1,0 +1,20 @@
+[project]
+name = "ble-prometheus-collector"
+version = "0.1.0"
+description = "BLE beacon data collector for Prometheus"
+dependencies = [
+    "bleak>=0.21.0",
+    "prometheus-client>=0.18.0",
+    "asyncio-mqtt>=0.13.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+]
