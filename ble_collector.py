@@ -4,7 +4,7 @@ from prometheus_client import Gauge, CollectorRegistry, start_http_server, gener
 from bleak import BleakScanner
 
 PROMETHEUS_PORT = 8000
-MANUFACTURER_ID = 0x2409
+MANUFACTURER_ID = 2409
 
 TARGET_MAC_ADDRESSES = [
     "D4:35:34:35:68:4D", # Legacy parser
@@ -21,39 +21,52 @@ def write_metrics(device_address, temperature_float, humidity):
     now = time.time()
     print(f"[INFO] Writing metrics for {device_address}: temp={temperature_float}°C, hum={humidity}%, ts={now}")
     temperature_gauge.labels(device_address=device_address).set(temperature_float)
-    humidity_gauge.labels(device_address=device_address).set(humidity)
+    humidity_gauge.labels(device_address=device_float).set(humidity)
     last_update_gauge.labels(device_address=device_address).set(now)
 
 
 def parse_beacon_data(data: bytes):
     """
     新しい仕様のBLEビーコンデータから温度・湿度をパース
-    仕様: temp = ((data[10] & 0x0F) * 0.1 + (data[11] & 0x7F)) * (((data[11] & 0x80) > 0) ? 1 : -1);
-    humidity = data[12] & 0x7F
+    提供された生のBLEビーコンデータに基づいてリバースエンジニアリングされたロジック。
+    manufacturer_data (F2B202067C49020A029DD7...) の
+    data[9] を温度、data[10] を湿度として解釈する。
+    温度: 下位7ビットが絶対値、最上位ビットが符号 (1=負, 0=正)
+    湿度: 下位7ビットがパーセンテージ (0-100%)
     """
     try:
-        if len(data) < 13: # Ensure enough bytes for temp and humidity
-            print(f"[ERROR] Manufacturer data too short for new beacon parser: {len(data)} bytes. Expected at least 13.")
+        # Manufacturer data is expected to start with the MAC address.
+        # Based on the provided raw data, temperature appears to be at data[9] and humidity at data[10].
+        if len(data) < 11: # Need data[9] and data[10]
+            print(f"[ERROR] Manufacturer data too short for new beacon parser. Expected at least 11 bytes, got {len(data)}.")
             return None
 
-        temp_byte_10 = data[10]
-        temp_byte_11 = data[11]
-        humidity_byte_12 = data[12] # Un-commented and used
+        temp_byte = data[9]
+        humidity_byte = data[10]
+
+        # Temperature parsing: Lower 7 bits for the absolute value, MSB for the sign.
+        # If MSB is 1, it's negative. If MSB is 0, it's positive.
+        temperature_value = temp_byte & 0x7F
+        temp_sign = -1 if (temp_byte & 0x80) else 1 # If 0x80 bit is set, it's negative
+
+        temperature = float(temperature_value * temp_sign)
+
+        # Humidity parsing: Lower 7 bits for the percentage (0-100%).
+        humidity = humidity_byte & 0x7F
+
+        # Basic validation for humidity
+        if humidity < 0 or humidity > 100:
+            print(f"[WARN] Parsed humidity {humidity}% out of expected range (0-100) for device F2:B2:02:06:7C:49. Raw byte: {hex(humidity_byte)}")
+            # You might want to return None or handle this as an error if invalid data is critical.
+
+        return {
+            "temperature_celsius": round(temperature, 2),
+            "humidity_percent": humidity
+        }
 
     except IndexError:
         print("[ERROR] Insufficient data bytes for temperature/humidity calculation in new beacon parser.")
         return None
-
-    temp_decimal_part = (temp_byte_10 & 0x0F) * 0.1
-    temp_integer_part = temp_byte_11 & 0x7F
-    temp_sign = 1 if (temp_byte_11 & 0x80) > 0 else -1
-    temperature = (temp_decimal_part + temp_integer_part) * temp_sign
-    humidity = humidity_byte_12 & 0x7F # Un-commented and used
-
-    return {
-        "temperature_celsius": round(temperature, 2),
-        "humidity_percent": humidity
-    }
 
 
 def parse_legacy_data(data: bytes):
@@ -68,7 +81,7 @@ def parse_legacy_data(data: bytes):
         sign = data[9] & 0b10000000
         temperature_decimals = data[8] & 0b00001111
         temperature = (data[9] & 0b01111111)
-        if sign == 0:
+        if sign == 0: # This means if MSB is 0, it's negative. This is unusual.
             temperature = -temperature
         humidity = data[10] & 0b01111111
         temperature_float = float(f"{temperature}.{temperature_decimals}")
@@ -83,10 +96,9 @@ def parse_legacy_data(data: bytes):
 
 def handle_advertisement(device, advertisement_data):
     mac = device.address.upper()
-    # print(f"[DEBUG] Advertisement received from {mac}") # Keep this for detailed debugging if needed
+    # print(f"[DEBUG] Advertisement received from {mac}")
 
     if mac not in TARGET_MAC_ADDRESSES:
-        # print(f"[DEBUG] {mac} is not a target address. Skipping.") # Too verbose for regular operation
         return
 
     # Safely get manufacturer data
@@ -106,7 +118,6 @@ def handle_advertisement(device, advertisement_data):
         print(f"[DEBUG] Using beacon parser for {mac}")
         parsed = parse_beacon_data(manufacturer_data)
     else:
-        # This block should ideally not be reached if TARGET_MAC_ADDRESSES is well-maintained
         print(f"[WARN] No parser defined for {mac}. This should not happen for target MACs.")
         return
 
@@ -114,7 +125,6 @@ def handle_advertisement(device, advertisement_data):
         print(f"[WARN] Could not parse data for {mac}. Data: {manufacturer_data.hex()}")
         return
 
-    # Check if humidity data exists before trying to access it
     temperature = parsed.get('temperature_celsius')
     humidity = parsed.get('humidity_percent')
 
@@ -123,8 +133,6 @@ def handle_advertisement(device, advertisement_data):
         write_metrics(mac, temperature, humidity)
     elif temperature is not None:
         print(f"[{mac}] Temperature: {temperature}°C (Humidity data not available)")
-        # If humidity is not available for a specific beacon type, you might consider setting it to a default/NaN or not updating the gauge.
-        # For now, we'll only update if both are present.
     else:
         print(f"[WARN] Parsed data for {mac} is incomplete. Parsed: {parsed}")
 
@@ -148,12 +156,6 @@ async def main():
     print(f"[INFO] Metrics available at: http://localhost:{PROMETHEUS_PORT}/metrics")
 
     while True:
-        # Optional: Comment out the following block if you don't need continuous console output of metrics
-        # metrics_output = generate_latest(registry).decode('utf-8')
-        # print("--- Prometheus Metrics Output ---")
-        # print(metrics_output)
-        # print("-------------------------------")
-        
         await scan_ble()
         await asyncio.sleep(55) # Wait for 55 seconds before the next scan, total 60s cycle
 
