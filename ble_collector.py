@@ -7,7 +7,7 @@ from prometheus_client import Gauge, CollectorRegistry, start_http_server, gener
 import time
 
 # 設定
-TARGET_MAC_ADDRESS = "D4:35:"  # あなたのビーコンのMACアドレス
+TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"  # あなたのビーコンのMACアドレス
 MANUFACTURER_ID = 0x2409
 PROMETHEUS_PORT = 8000
 
@@ -81,6 +81,11 @@ async def main():
     while True:
         try:
             await scan_ble()
+            # メトリクスエンドポイントの内容をprint（デバッグ用）
+            metrics_output = generate_latest(registry).decode('utf-8')
+            print("--- Prometheus Metrics Output ---")
+            print(metrics_output)
+            print("-------------------------------")
             await asyncio.sleep(55)  # 55秒待機
         except KeyboardInterrupt:
             print("Stopping BLE scanner...")

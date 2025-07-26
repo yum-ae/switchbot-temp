@@ -8,9 +8,6 @@ dependencies = [
     "asyncio-mqtt>=0.13.0",
 ]
 
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
 
 [tool.uv]
 dev-dependencies = [

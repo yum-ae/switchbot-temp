@@ -40,7 +40,7 @@ wheels = [
 [[package]]
 name = "ble-prometheus-collector"
 version = "0.1.0"
-source = { editable = "." }
+source = { virtual = "." }
 dependencies = [
     { name = "asyncio-mqtt" },
     { name = "bleak" },
