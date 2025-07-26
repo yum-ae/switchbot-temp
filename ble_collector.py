@@ -20,7 +20,7 @@ import binascii
 import datetime
 from bleak import BleakScanner
 
-TARGET_MAC_ADDRESS = "D4:35:"
+TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"
 MANUFACTURER_ID = 0x2409
 
 
