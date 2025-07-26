@@ -3,9 +3,12 @@
 # Prometheusテストデータ書き込み用のシンプルなスクリプト
 import time
 from prometheus_client import Gauge, CollectorRegistry, start_http_server, generate_latest
+import asyncio
+from bleak import BleakScanner
 
 PROMETHEUS_PORT = 8000
-TEST_DEVICE_ADDRESS = "D4:35:34:35:68:4D"
+TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"
+MANUFACTURER_ID = 0x2409
 
 registry = CollectorRegistry()
 temperature_gauge = Gauge('ble_temperature_celsius', 'Temperature from BLE beacon in Celsius', ['device_address'], registry=registry)
@@ -13,23 +16,8 @@ humidity_gauge = Gauge('ble_humidity_percent', 'Humidity from BLE beacon in perc
 last_update_gauge = Gauge('ble_last_update_timestamp', 'Last update timestamp from BLE beacon', ['device_address'], registry=registry)
 
 
-
-
-import asyncio
-import binascii
-import datetime
-from bleak import BleakScanner
-
-TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"
-MANUFACTURER_ID = 0x2409
-
-
-
 def write_metrics(TARGET_MAC_ADDRESS, temperature_float, humidity):
     now = time.time()
-    temp = 23.5
-    hum = 55.0
-    print(f"[TEST] Writing test metrics: temp={temp}, hum={hum}, ts={now}")
     temperature_gauge.labels(device_address=TARGET_MAC_ADDRESS).set(temperature_float)
     humidity_gauge.labels(device_address=TARGET_MAC_ADDRESS).set(humidity)
     last_update_gauge.labels(device_address=TARGET_MAC_ADDRESS).set(now)
@@ -57,7 +45,6 @@ async def scan_ble():
     def callback(device, advertisement_data):
         if device.address.upper() == TARGET_MAC_ADDRESS:
             # print(f"Device Found: {device.name} ({device.address}), RSSI: {device.rssi}")
-
             manufacturer_data = advertisement_data.manufacturer_data[2409]
             if manufacturer_data:
                 # print(f"Raw Manufacturer Data: {binascii.hexlify(manufacturer_data).decode()}")
@@ -80,10 +67,7 @@ async def main():
         print("--- Prometheus Metrics Output ---")
         print(metrics_output)
         print("-------------------------------")
-        time.sleep(10)
         await scan_ble()
         await asyncio.sleep(55)
 
 asyncio.run(main())
-
-
