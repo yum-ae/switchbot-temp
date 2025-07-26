@@ -82,9 +82,9 @@ def handle_advertisement(device, advertisement_data):
     if mac not in TARGET_MAC_ADDRESSES:
         print(f"[DEBUG] {mac} is not a target address. Skipping.")
         return
-    try:
-        manufacturer_data = advertisement_data.manufacturer_data[MANUFACTURER_ID]
-    except KeyError:
+    manufacturer_data = advertisement_data.manufacturer_data[2409]
+    # manufacturer_data = advertisement_data.manufacturer_data.get(MANUFACTURER_ID)
+    if not manufacturer_data:
         print(f"[DEBUG] No manufacturer data for {mac}. Skipping.")
         return
     print(f"[DEBUG] Manufacturer data for {mac}: {manufacturer_data.hex() if hasattr(manufacturer_data, 'hex') else manufacturer_data}")
