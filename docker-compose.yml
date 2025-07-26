@@ -42,6 +42,9 @@ services:
     image: grafana/grafana-image-renderer:latest
     ports:
       - 8081
+    networks:
+      - monitoring
+    restart: unless-stopped
 
 volumes:
   prometheus_data:
