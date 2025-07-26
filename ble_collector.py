@@ -69,10 +69,7 @@ def parse_temperature_humidity(data: bytes):
     temperature_str = f"{temperature}.{temperature_decimals}"
     temperature_float = float(temperature_str)
 
-    asyncio.create_task(write_test_metrics(TARGET_MAC_ADDRESS, temperature_float, humidity))
-
-
-
+    write_test_metrics(TARGET_MAC_ADDRESS, temperature_float, humidity)
 
 async def scan_ble_old():
     def callback(device, advertisement_data):
