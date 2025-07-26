@@ -1,59 +1,85 @@
+
 import asyncio
 import binascii
-import datetime
-from typing import Optional
+import time
 from bleak import BleakScanner
 from prometheus_client import Gauge, CollectorRegistry, start_http_server, generate_latest
-import time
 
 # 設定
-TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"  # あなたのビーコンのMACアドレス
+TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"
 MANUFACTURER_ID = 0x2409
 PROMETHEUS_PORT = 8000
 
 # Prometheusメトリクス定義
 registry = CollectorRegistry()
-temperature_gauge = Gauge('ble_temperature_celsius', 
-                         'Temperature from BLE beacon in Celsius', 
-                         ['device_address'], 
-                         registry=registry)
-humidity_gauge = Gauge('ble_humidity_percent', 
-                      'Humidity from BLE beacon in percent', 
-                      ['device_address'], 
-                      registry=registry)
-last_update_gauge = Gauge('ble_last_update_timestamp', 
-                         'Last update timestamp from BLE beacon', 
-                         ['device_address'], 
-                         registry=registry)
+temperature_gauge = Gauge('ble_temperature_celsius', 'Temperature from BLE beacon in Celsius', ['device_address'], registry=registry)
+humidity_gauge = Gauge('ble_humidity_percent', 'Humidity from BLE beacon in percent', ['device_address'], registry=registry)
+last_update_gauge = Gauge('ble_last_update_timestamp', 'Last update timestamp from BLE beacon', ['device_address'], registry=registry)
 
-def parse_temperature_humidity(data: bytes, device_address: str) -> Optional[tuple]:
-    """BLEビーコンデータから温度と湿度を解析"""
-    print(f"parse_temperature_humidity called for {device_address}, data: {binascii.hexlify(data)}")
+# 最新値を保持するグローバル変数
+latest_data = {
+    'temperature': None,
+    'humidity': None,
+    'timestamp': None,
+    'device_address': TARGET_MAC_ADDRESS
+}
+
+def parse_temperature_humidity(data: bytes, device_address: str):
     if len(data) < 11:
         print("Invalid manufacturer data length")
-        return None
-        
+        return
     sign = data[9] & 0b10000000
     temperature_decimals = data[8] & 0b00001111
     temperature = (data[9] & 0b01111111)
-    
     if sign == 0:
         temperature = -temperature
-        
     humidity = data[10] & 0b01111111
-    
-    print(f"Temperature: {temperature}.{temperature_decimals}°C, Humidity: {humidity}%")
-    
     temperature_str = f"{temperature}.{temperature_decimals}"
     temperature_float = float(temperature_str)
-    
-    # Prometheusメトリクスを更新
-    temperature_gauge.labels(device_address=device_address).set(temperature_float)
-    humidity_gauge.labels(device_address=device_address).set(humidity)
-    last_update_gauge.labels(device_address=device_address).set(time.time())
-    
-    print("Data updated in Prometheus metrics")
-    return temperature_float, humidity
+    print(f"[BLE] Temperature: {temperature_float}°C, Humidity: {humidity}%")
+    # 最新値を保存
+    latest_data['temperature'] = temperature_float
+    latest_data['humidity'] = humidity
+    latest_data['timestamp'] = time.time()
+
+async def scan_ble():
+    def callback(device, advertisement_data):
+        if device.address.upper() == TARGET_MAC_ADDRESS:
+            if MANUFACTURER_ID in advertisement_data.manufacturer_data:
+                manufacturer_data = advertisement_data.manufacturer_data[MANUFACTURER_ID]
+                if manufacturer_data:
+                    print(f"[BLE] Data received from {device.address}")
+                    parse_temperature_humidity(manufacturer_data, device.address)
+    print(f"Scanning for BLE device with MAC address: {TARGET_MAC_ADDRESS}...")
+    scanner = BleakScanner(callback)
+    await scanner.start()
+    await asyncio.sleep(5)
+    await scanner.stop()
+    print("Scan complete.")
+
+async def main():
+    start_http_server(PROMETHEUS_PORT, registry=registry)
+    print(f"Prometheus metrics server started on port {PROMETHEUS_PORT}")
+    print(f"Metrics available at: http://localhost:{PROMETHEUS_PORT}/metrics")
+    while True:
+        await scan_ble()
+        # 最新値があればPrometheusメトリクスを更新
+        if latest_data['temperature'] is not None and latest_data['humidity'] is not None:
+            temperature_gauge.labels(device_address=latest_data['device_address']).set(latest_data['temperature'])
+            humidity_gauge.labels(device_address=latest_data['device_address']).set(latest_data['humidity'])
+            last_update_gauge.labels(device_address=latest_data['device_address']).set(latest_data['timestamp'])
+            print("[Prometheus] Metrics updated.")
+        else:
+            print("[Prometheus] No BLE data yet.")
+        # デバッグ用: メトリクス出力
+        metrics_output = generate_latest(registry).decode('utf-8')
+        print("--- Prometheus Metrics Output ---")
+        print(metrics_output)
+        print("-------------------------------")
+        await asyncio.sleep(55)
+
+if __name__ == "__main__":
+    asyncio.run(main())
 
 async def scan_ble():
     """BLEデバイスをスキャンしてデータを取得"""
