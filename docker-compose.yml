@@ -37,6 +37,10 @@ services:
       - monitoring
     depends_on:
       - prometheus
+  renderer:
+    image: grafana/grafana-image-renderer:latest
+    ports:
+      - 8081
 
 volumes:
   prometheus_data:
