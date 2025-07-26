@@ -35,13 +35,14 @@ def parse_beacon_data(data: bytes):
     仕様: temp = ((data[10] & 0x0F) * 0.1 + (data[11] & 0x7F)) * (((data[11] & 0x80) > 0) ? 1 : -1);
     humidity = data[12] & 0x7F
     """
-    if len(data) < 13:
-        print(f"Manufacturer data too short: {len(data)} bytes")
-        return None
+
+    # if len(data) < 12:
+    #     print(f"Manufacturer data too short: {len(data)} bytes")
+    #     return None
     try:
         temp_byte_10 = data[10]
         temp_byte_11 = data[11]
-        humidity_byte_12 = data[12]
+        # humidity_byte_12 = data[12]
     except IndexError:
         print("Insufficient data bytes for temperature/humidity calculation.")
         return None
@@ -49,10 +50,10 @@ def parse_beacon_data(data: bytes):
     temp_integer_part = temp_byte_11 & 0x7F
     temp_sign = 1 if (temp_byte_11 & 0x80) > 0 else -1
     temperature = (temp_decimal_part + temp_integer_part) * temp_sign
-    humidity = humidity_byte_12 & 0x7F
+    # humidity = humidity_byte_12 & 0x7F
     return {
         "temperature_celsius": round(temperature, 2),
-        "humidity_percent": humidity
+        # "humidity_percent": humidity
     }
 
 
