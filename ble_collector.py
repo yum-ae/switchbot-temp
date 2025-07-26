@@ -25,22 +25,31 @@ latest_data = {
 }
 
 def parse_temperature_humidity(data: bytes, device_address: str):
+    print(f"[DEBUG] parse_temperature_humidity called for {device_address}")
+    print(f"[DEBUG] raw data: {binascii.hexlify(data)} (len={len(data)})")
     if len(data) < 11:
-        print("Invalid manufacturer data length")
+        print("[ERROR] Invalid manufacturer data length")
         return
     sign = data[9] & 0b10000000
     temperature_decimals = data[8] & 0b00001111
     temperature = (data[9] & 0b01111111)
+    print(f"[DEBUG] sign={sign}, temp_decimals={temperature_decimals}, temp={temperature}")
     if sign == 0:
         temperature = -temperature
     humidity = data[10] & 0b01111111
+    print(f"[DEBUG] humidity={humidity}")
     temperature_str = f"{temperature}.{temperature_decimals}"
-    temperature_float = float(temperature_str)
+    try:
+        temperature_float = float(temperature_str)
+    except Exception as e:
+        print(f"[ERROR] float conversion failed: {e}")
+        return
     print(f"[BLE] Temperature: {temperature_float}°C, Humidity: {humidity}%")
     # 最新値を保存
     latest_data['temperature'] = temperature_float
     latest_data['humidity'] = humidity
     latest_data['timestamp'] = time.time()
+    print(f"[DEBUG] Prometheus metrics will be updated on next loop.")
 
 async def scan_ble():
     def callback(device, advertisement_data):
