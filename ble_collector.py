@@ -21,7 +21,7 @@ def write_metrics(device_address, temperature_float, humidity):
     now = time.time()
     print(f"[INFO] Writing metrics for {device_address}: temp={temperature_float}°C, hum={humidity}%, ts={now}")
     temperature_gauge.labels(device_address=device_address).set(temperature_float)
-    humidity_gauge.labels(device_address=device_float).set(humidity)
+    humidity_gauge.labels(device_address=device_address).set(humidity)
     last_update_gauge.labels(device_address=device_address).set(now)
 
 
