@@ -97,7 +97,6 @@ async def main():
     print(f"Prometheus metrics server started on port {PROMETHEUS_PORT}")
     print(f"Metrics available at: http://localhost:{PROMETHEUS_PORT}/metrics")
     while True:
-        write_test_metrics()
         metrics_output = generate_latest(registry).decode('utf-8')
         print("--- Prometheus Metrics Output ---")
         print(metrics_output)
