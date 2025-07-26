@@ -23,6 +23,7 @@ last_update_gauge = Gauge('ble_last_update_timestamp', 'Last update timestamp fr
 
 def write_metrics(device_address, temperature_float, humidity):
     now = time.time()
+    print(f"[DEBUG] Writing metrics for {device_address}: temp={temperature_float}, hum={humidity}, ts={now}")
     temperature_gauge.labels(device_address=device_address).set(temperature_float)
     humidity_gauge.labels(device_address=device_address).set(humidity)
     last_update_gauge.labels(device_address=device_address).set(now)
@@ -77,39 +78,46 @@ def parse_legacy_data(data: bytes):
 
 def handle_advertisement(device, advertisement_data):
     mac = device.address.upper()
+    print(f"[DEBUG] Advertisement received from {mac}")
     if mac not in TARGET_MAC_ADDRESSES:
+        print(f"[DEBUG] {mac} is not a target address. Skipping.")
         return
     manufacturer_data = advertisement_data.manufacturer_data.get(MANUFACTURER_ID)
     if not manufacturer_data:
+        print(f"[DEBUG] No manufacturer data for {mac}. Skipping.")
         return
+    print(f"[DEBUG] Manufacturer data for {mac}: {manufacturer_data.hex() if hasattr(manufacturer_data, 'hex') else manufacturer_data}")
     # MACアドレスごとにパース関数を切り替え
     if mac == "D4:35:34:35:68:4D":
+        print(f"[DEBUG] Using legacy parser for {mac}")
         parsed = parse_legacy_data(manufacturer_data)
     elif mac == "F2:B2:02:06:7C:49":
+        print(f"[DEBUG] Using beacon parser for {mac}")
         parsed = parse_beacon_data(manufacturer_data)
     else:
-        print(f"No parser defined for {mac}")
+        print(f"[DEBUG] No parser defined for {mac}")
         return
     if not parsed:
-        print(f"Could not parse data for {mac}")
+        print(f"[DEBUG] Could not parse data for {mac}. Data: {manufacturer_data.hex() if hasattr(manufacturer_data, 'hex') else manufacturer_data}")
         return
+    print(f"[DEBUG] Parsed result for {mac}: {parsed}")
     print(f"[{mac}] Temperature: {parsed['temperature_celsius']}°C, Humidity: {parsed['humidity_percent']}%")
     write_metrics(mac, parsed['temperature_celsius'], parsed['humidity_percent'])
 
 
 async def scan_ble():
-    print(f"Scanning for BLE devices: {', '.join(TARGET_MAC_ADDRESSES)}...")
+    print(f"[DEBUG] Scanning for BLE devices: {', '.join(TARGET_MAC_ADDRESSES)}...")
     scanner = BleakScanner(handle_advertisement)
     await scanner.start()
     await asyncio.sleep(5)
     await scanner.stop()
-    print("Scan complete.")
+    print("[DEBUG] Scan complete.")
 
 
 async def main():
     start_http_server(PROMETHEUS_PORT, registry=registry)
-    print(f"Prometheus metrics server started on port {PROMETHEUS_PORT}")
-    print(f"Metrics available at: http://localhost:{PROMETHEUS_PORT}/metrics")
+    print(f"[DEBUG] Prometheus metrics server started on port {PROMETHEUS_PORT}")
+    print(f"[DEBUG] Metrics available at: http://localhost:{PROMETHEUS_PORT}/metrics")
     while True:
         metrics_output = generate_latest(registry).decode('utf-8')
         print("--- Prometheus Metrics Output ---")
