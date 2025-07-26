@@ -57,18 +57,12 @@ async def scan_ble():
         print(f"[SCAN] Device: {device.address}, RSSI: {getattr(device, 'rssi', 'N/A')}")
         if advertisement_data.manufacturer_data:
             print(f"  manufacturer_data: {advertisement_data.manufacturer_data}")
+            # すべてのmanufacturer_dataをパースしてみる
+            for m_id, m_data in advertisement_data.manufacturer_data.items():
+                print(f"  [TRY] manufacturer_id={hex(m_id)} data={binascii.hexlify(m_data)}")
+                parse_temperature_humidity(m_data, device.address)
         else:
             print("  manufacturer_data: None")
-        # ターゲットデバイスかどうか
-        if device.address.upper() == TARGET_MAC_ADDRESS:
-            print(f"  [MATCH] Target device matched: {device.address}")
-            if MANUFACTURER_ID in advertisement_data.manufacturer_data:
-                manufacturer_data = advertisement_data.manufacturer_data[MANUFACTURER_ID]
-                if manufacturer_data:
-                    print(f"  [MATCH] Manufacturer data for target: {binascii.hexlify(manufacturer_data)}")
-                    parse_temperature_humidity(manufacturer_data, device.address)
-            else:
-                print(f"  [MATCH] Manufacturer ID {hex(MANUFACTURER_ID)} not found in manufacturer_data")
     print(f"Scanning for BLE device with MAC address: {TARGET_MAC_ADDRESS}...")
     scanner = BleakScanner(callback)
     await scanner.start()
