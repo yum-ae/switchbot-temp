@@ -13,6 +13,6 @@ scrape_configs:
 
   - job_name: 'ble-beacon-collector'
     static_configs:
-      - targets: ['localhost:8000']
+      - targets: ['0.0.0.0:8000']
     scrape_interval: 30s
     metrics_path: /metrics
