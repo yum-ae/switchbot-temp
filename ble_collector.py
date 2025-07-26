@@ -28,6 +28,7 @@ last_update_gauge = Gauge('ble_last_update_timestamp',
 
 def parse_temperature_humidity(data: bytes, device_address: str) -> Optional[tuple]:
     """BLEビーコンデータから温度と湿度を解析"""
+    print(f"parse_temperature_humidity called for {device_address}, data: {binascii.hexlify(data)}")
     if len(data) < 11:
         print("Invalid manufacturer data length")
         return None
@@ -57,12 +58,18 @@ def parse_temperature_humidity(data: bytes, device_address: str) -> Optional[tup
 async def scan_ble():
     """BLEデバイスをスキャンしてデータを取得"""
     def callback(device, advertisement_data):
+        print(f"Found device: {device.address}, RSSI: {device.rssi}")
+        if advertisement_data.manufacturer_data:
+            print(f"  manufacturer_data: {advertisement_data.manufacturer_data}")
         if device.address.upper() == TARGET_MAC_ADDRESS:
+            print(f"  Target device matched: {device.address}")
             if MANUFACTURER_ID in advertisement_data.manufacturer_data:
                 manufacturer_data = advertisement_data.manufacturer_data[MANUFACTURER_ID]
                 if manufacturer_data:
+                    print(f"  Manufacturer data for target: {binascii.hexlify(manufacturer_data)}")
                     parse_temperature_humidity(manufacturer_data, device.address)
-    
+            else:
+                print(f"  Manufacturer ID {hex(MANUFACTURER_ID)} not found in manufacturer_data")
     print(f"Scanning for BLE device with MAC address: {TARGET_MAC_ADDRESS}...")
     scanner = BleakScanner(callback)
     await scanner.start()
