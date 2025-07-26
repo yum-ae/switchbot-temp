@@ -82,10 +82,14 @@ def handle_advertisement(device, advertisement_data):
     manufacturer_data = advertisement_data.manufacturer_data.get(MANUFACTURER_ID)
     if not manufacturer_data:
         return
-    # どちらのパースが成功するか試す
-    parsed = parse_beacon_data(manufacturer_data)
-    if not parsed:
+    # MACアドレスごとにパース関数を切り替え
+    if mac == "D4:35:34:35:68:4D":
         parsed = parse_legacy_data(manufacturer_data)
+    elif mac == "F2:B2:02:06:7C:49":
+        parsed = parse_beacon_data(manufacturer_data)
+    else:
+        print(f"No parser defined for {mac}")
+        return
     if not parsed:
         print(f"Could not parse data for {mac}")
         return
