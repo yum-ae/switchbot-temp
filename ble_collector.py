@@ -1,14 +1,19 @@
 
 
-# Prometheusテストデータ書き込み用のシンプルなスクリプト
+# BLE温湿度データをPrometheusにエクスポートするスクリプト（複数MAC対応）
 import time
-from prometheus_client import Gauge, CollectorRegistry, start_http_server, generate_latest
 import asyncio
+from prometheus_client import Gauge, CollectorRegistry, start_http_server, generate_latest
 from bleak import BleakScanner
 
 PROMETHEUS_PORT = 8000
-TARGET_MAC_ADDRESS = "D4:35:34:35:68:4D"
 MANUFACTURER_ID = 0x2409
+
+# 監視対象MACアドレス（大文字で統一）
+TARGET_MAC_ADDRESSES = [
+    "D4:35:34:35:68:4D",
+    "F2:B2:02:06:7C:49",
+]
 
 registry = CollectorRegistry()
 temperature_gauge = Gauge('ble_temperature_celsius', 'Temperature from BLE beacon in Celsius', ['device_address'], registry=registry)
@@ -16,44 +21,83 @@ humidity_gauge = Gauge('ble_humidity_percent', 'Humidity from BLE beacon in perc
 last_update_gauge = Gauge('ble_last_update_timestamp', 'Last update timestamp from BLE beacon', ['device_address'], registry=registry)
 
 
-def write_metrics(TARGET_MAC_ADDRESS, temperature_float, humidity):
+def write_metrics(device_address, temperature_float, humidity):
     now = time.time()
-    temperature_gauge.labels(device_address=TARGET_MAC_ADDRESS).set(temperature_float)
-    humidity_gauge.labels(device_address=TARGET_MAC_ADDRESS).set(humidity)
-    last_update_gauge.labels(device_address=TARGET_MAC_ADDRESS).set(now)
+    temperature_gauge.labels(device_address=device_address).set(temperature_float)
+    humidity_gauge.labels(device_address=device_address).set(humidity)
+    last_update_gauge.labels(device_address=device_address).set(now)
 
 
-def parse_temperature_humidity(data: bytes):
+def parse_beacon_data(data: bytes):
+    """
+    新しい仕様のBLEビーコンデータから温度・湿度をパース
+    仕様: temp = ((data[10] & 0x0F) * 0.1 + (data[11] & 0x7F)) * (((data[11] & 0x80) > 0) ? 1 : -1);
+    humidity = data[12] & 0x7F
+    """
+    if len(data) < 13:
+        print(f"Manufacturer data too short: {len(data)} bytes")
+        return None
+    try:
+        temp_byte_10 = data[10]
+        temp_byte_11 = data[11]
+        humidity_byte_12 = data[12]
+    except IndexError:
+        print("Insufficient data bytes for temperature/humidity calculation.")
+        return None
+    temp_decimal_part = (temp_byte_10 & 0x0F) * 0.1
+    temp_integer_part = temp_byte_11 & 0x7F
+    temp_sign = 1 if (temp_byte_11 & 0x80) > 0 else -1
+    temperature = (temp_decimal_part + temp_integer_part) * temp_sign
+    humidity = humidity_byte_12 & 0x7F
+    return {
+        "temperature_celsius": round(temperature, 2),
+        "humidity_percent": humidity
+    }
+
+
+def parse_legacy_data(data: bytes):
+    """
+    旧仕様のデータパース（既存ロジック）
+    """
     if len(data) < 11:
         print("Invalid manufacturer data length")
-        return
+        return None
     sign = data[9] & 0b10000000
     temperature_decimals = data[8] & 0b00001111
     temperature = (data[9] & 0b01111111)
     if sign == 0:
-      temperature = -temperature
-
+        temperature = -temperature
     humidity = data[10] & 0b01111111
+    temperature_float = float(f"{temperature}.{temperature_decimals}")
+    return {
+        "temperature_celsius": temperature_float,
+        "humidity_percent": humidity
+    }
 
-    print(f"Temperature: {temperature}.{temperature_decimals}°C, Humidity: {humidity}%")
-    temperature_str = f"{temperature}.{temperature_decimals}"
-    temperature_float = float(temperature_str)
 
-    write_metrics(TARGET_MAC_ADDRESS, temperature_float, humidity)
+def handle_advertisement(device, advertisement_data):
+    mac = device.address.upper()
+    if mac not in TARGET_MAC_ADDRESSES:
+        return
+    manufacturer_data = advertisement_data.manufacturer_data.get(MANUFACTURER_ID)
+    if not manufacturer_data:
+        return
+    # どちらのパースが成功するか試す
+    parsed = parse_beacon_data(manufacturer_data)
+    if not parsed:
+        parsed = parse_legacy_data(manufacturer_data)
+    if not parsed:
+        print(f"Could not parse data for {mac}")
+        return
+    print(f"[{mac}] Temperature: {parsed['temperature_celsius']}°C, Humidity: {parsed['humidity_percent']}%")
+    write_metrics(mac, parsed['temperature_celsius'], parsed['humidity_percent'])
+
 
 async def scan_ble():
-    def callback(device, advertisement_data):
-        if device.address.upper() == TARGET_MAC_ADDRESS:
-            # print(f"Device Found: {device.name} ({device.address}), RSSI: {device.rssi}")
-            manufacturer_data = advertisement_data.manufacturer_data[2409]
-            if manufacturer_data:
-                # print(f"Raw Manufacturer Data: {binascii.hexlify(manufacturer_data).decode()}")
-                parse_temperature_humidity(manufacturer_data)
-
-    print(f"Scanning for BLE device with MAC address: {TARGET_MAC_ADDRESS}...")
-    scanner = BleakScanner(callback)
+    print(f"Scanning for BLE devices: {', '.join(TARGET_MAC_ADDRESSES)}...")
+    scanner = BleakScanner(handle_advertisement)
     await scanner.start()
-    await asyncio.sleep(5)  # 5sec scan
+    await asyncio.sleep(5)
     await scanner.stop()
     print("Scan complete.")
 
@@ -70,4 +114,6 @@ async def main():
         await scan_ble()
         await asyncio.sleep(55)
 
-asyncio.run(main())
+
+if __name__ == "__main__":
+    asyncio.run(main())
