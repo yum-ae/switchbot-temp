@@ -44,12 +44,22 @@ def parse_temperature_humidity(data: bytes, device_address: str):
 
 async def scan_ble():
     def callback(device, advertisement_data):
+        # すべてのデバイスの情報をprint
+        print(f"[SCAN] Device: {device.address}, RSSI: {getattr(device, 'rssi', 'N/A')}")
+        if advertisement_data.manufacturer_data:
+            print(f"  manufacturer_data: {advertisement_data.manufacturer_data}")
+        else:
+            print("  manufacturer_data: None")
+        # ターゲットデバイスかどうか
         if device.address.upper() == TARGET_MAC_ADDRESS:
+            print(f"  [MATCH] Target device matched: {device.address}")
             if MANUFACTURER_ID in advertisement_data.manufacturer_data:
                 manufacturer_data = advertisement_data.manufacturer_data[MANUFACTURER_ID]
                 if manufacturer_data:
-                    print(f"[BLE] Data received from {device.address}")
+                    print(f"  [MATCH] Manufacturer data for target: {binascii.hexlify(manufacturer_data)}")
                     parse_temperature_humidity(manufacturer_data, device.address)
+            else:
+                print(f"  [MATCH] Manufacturer ID {hex(MANUFACTURER_ID)} not found in manufacturer_data")
     print(f"Scanning for BLE device with MAC address: {TARGET_MAC_ADDRESS}...")
     scanner = BleakScanner(callback)
     await scanner.start()
