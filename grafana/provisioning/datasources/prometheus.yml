@@ -1,9 +1,18 @@
-apiVersion: 1
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
 
-datasources:
-  - name: Prometheus
-    type: prometheus
-    access: proxy
-    url: http://prometheus:9090
-    isDefault: true
-    editable: true
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  - job_name: 'ble-beacon-collector'
+    static_configs:
+      - targets: ['host.docker.internal:8000']  # Docker内からホストのPythonスクリプトにアクセス
+    scrape_interval: 30s
+    metrics_path: /metrics
