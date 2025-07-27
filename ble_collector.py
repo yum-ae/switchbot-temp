@@ -40,16 +40,15 @@ def parse_beacon_data(data: bytes):
         temp_byte = data[9]
         humidity_byte = data[10]
 
-        # Temperature parsing: Lower 7 bits for the absolute value, MSB for the sign.
-        # If MSB is 1, it's positive. If MSB is 0, it's negative.
-        temperature_integer_absolute = temp_byte & 0x7F
-        temp_sign = 1 if (temp_byte & 0x80) else -1 # If 0x80 bit is set, it's positive
 
-        temp_fractional_byte = data[8]
-        temperature_fractional_value = temp_fractional_byte
 
-        temperature = float(temperature_integer_absolute) + (float(temperature_fractional_value) / 10.0)
-        temperature *= temp_sign
+        temp_byte_decimal_part = data[8]
+        temperature_decimal_value = (temp_byte_decimal_part & 0x0F) / 10.0
+
+        temperature_value = temp_byte & 0x7F
+        temp_sign = 1 if (temp_byte & 0x80) else -1
+
+        temperature = float((temperature_value + temperature_decimal_value) * temp_sign)
 
         # Humidity parsing: Lower 7 bits for the percentage (0-100%).
         humidity = humidity_byte & 0x7F
