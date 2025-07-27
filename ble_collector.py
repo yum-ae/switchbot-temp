@@ -27,16 +27,12 @@ def write_metrics(device_address, temperature_float, humidity):
 
 def parse_beacon_data(data: bytes):
     """
-    新しい仕様のBLEビーコンデータから温度・湿度をパース
-    提供された生のBLEビーコンデータに基づいてリバースエンジニアリングされたロジック。
-    manufacturer_data (F2B202067C49020A029DD7...) の
     data[9] を温度、data[10] を湿度として解釈する。
     温度: 下位7ビットが絶対値、最上位ビットが符号 (1=負, 0=正)
     湿度: 下位7ビットがパーセンテージ (0-100%)
     """
     try:
         # Manufacturer data is expected to start with the MAC address.
-        # Based on the provided raw data, temperature appears to be at data[9] and humidity at data[10].
         if len(data) < 11: # Need data[9] and data[10]
             print(f"[ERROR] Manufacturer data too short for new beacon parser. Expected at least 11 bytes, got {len(data)}.")
             return None
@@ -46,18 +42,17 @@ def parse_beacon_data(data: bytes):
 
         # Temperature parsing: Lower 7 bits for the absolute value, MSB for the sign.
         # If MSB is 1, it's positive. If MSB is 0, it's negative.
-        temperature_value = temp_byte & 0x7F
+        temperature_integer_absolute = temp_byte & 0x7F
         temp_sign = 1 if (temp_byte & 0x80) else -1 # If 0x80 bit is set, it's positive
 
-        temperature = float(temperature_value * temp_sign)
+        temp_fractional_byte = data[8]
+        temperature_fractional_value = temp_fractional_byte
+
+        temperature = float(temperature_integer_absolute) + (float(temperature_fractional_value) / 10.0)
+        temperature *= temp_sign
 
         # Humidity parsing: Lower 7 bits for the percentage (0-100%).
         humidity = humidity_byte & 0x7F
-
-        # Basic validation for humidity
-        if humidity < 0 or humidity > 100:
-            print(f"[WARN] Parsed humidity {humidity}% out of expected range (0-100) for device F2:B2:02:06:7C:49. Raw byte: {hex(humidity_byte)}")
-            # You might want to return None or handle this as an error if invalid data is critical.
 
         return {
             "temperature_celsius": round(temperature, 2),
@@ -70,9 +65,6 @@ def parse_beacon_data(data: bytes):
 
 
 def parse_legacy_data(data: bytes):
-    """
-    旧仕様のデータパース（既存ロジック）
-    """
     if len(data) < 11:
         print(f"[ERROR] Invalid manufacturer data length for legacy parser: {len(data)} bytes. Expected at least 11.")
         return None
