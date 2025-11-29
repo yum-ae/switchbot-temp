@@ -27,9 +27,10 @@ def write_metrics(device_address, temperature_float, humidity):
 
 def parse_beacon_data(data: bytes):
     """
-    data[9] を温度、data[10] を湿度として解釈する。
-    温度: 下位7ビットが絶対値、最上位ビットが符号 (1=負, 0=正)
-    湿度: 下位7ビットがパーセンテージ (0-100%)
+    data[9]: temperature byte
+    data[10]: humidity byte
+    temperature: first 7 bits are integer part, MSB is sign (0: negative, 1: positive)
+    humidity: lower 7 bits for percentage (0-100%)
     """
     try:
         # Manufacturer data is expected to start with the MAC address.
