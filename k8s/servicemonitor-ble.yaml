@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: ble-collector
+  namespace: monitoring
+  labels:
+    app: ble-collector
+spec:
+  selector:
+    matchLabels:
+      app: ble-collector
+  namespaceSelector:
+    matchNames:
+      - default
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s

@@ -5,11 +5,10 @@ metadata:
   labels:
     {{- include "ble-exporter.labels" . | nindent 4 }}
 spec:
-  type: {{ .Values.service.type }}
-  ports:
-    - port: {{ .Values.service.port }}
-      targetPort: http-metrics
-      protocol: TCP
-      name: http-metrics
   selector:
     {{- include "ble-exporter.selectorLabels" . | nindent 4 }}
+  ports:
+    - name: http-metrics
+      port: 8000
+      targetPort: 8000
+      protocol: TCP

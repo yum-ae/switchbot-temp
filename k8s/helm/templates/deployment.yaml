@@ -15,7 +15,7 @@ spec:
         {{- include "ble-exporter.selectorLabels" . | nindent 8 }}
     spec:
       # ⚠️ BLEアクセスに必要な設定
-      hostNetwork: {{ .Values.exporter.hostNetwork }}
+      # hostNetwork: {{ .Values.exporter.hostNetwork }}
       # privileged: true (securityContextに追加)
 
       containers:
@@ -29,8 +29,8 @@ spec:
           # BLEスキャンに必要なcapabilities
           securityContext:
             privileged: {{ .Values.exporter.privileged }}
-            capabilities:
-              add: ["NET_ADMIN", "NET_RAW"]
+            # capabilities:
+            #   add: ["NET_ADMIN", "NET_RAW"]
           # MACアドレスを環境変数で渡し、Pythonコード側で読み込むように修正するのが理想
           env:
             - name: TARGET_MACS
