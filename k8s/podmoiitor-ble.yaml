@@ -1,0 +1,18 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: monitoring
+  labels:
+    release: prometheus
+spec:
+  selector:
+    matchLabels:
+      app: ble-collector
+  namespaceSelector:
+    matchNames:
+      - default
+  podMetricsEndpoints:
+    - port: http-metrics # DaemonSetで定義されたポート名 (containerPort: 8000, name: http-metrics)
+      path: /metrics     # サービスがメトリクスを公開しているパス (デフォルトは /metrics)
+      interval: 30s      # Prometheusがこのエンドポイントをスクレイピングする頻度
+      scheme: http       # HTTPプロトコルを使用
