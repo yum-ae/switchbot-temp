@@ -1,10 +1,11 @@
 apiVersion: apps/v1
-kind: DaemonSet
+kind: Deployment
 metadata:
   name: ble-collector
   labels:
     app: ble-collector
 spec:
+  replicas: 1
   selector:
     matchLabels:
       app: ble-collector
@@ -13,8 +14,6 @@ spec:
       labels:
         app: ble-collector
     spec:
-      hostNetwork: true
-      # hostPID not strictly required here; keep false unless needed
       containers:
       - name: ble-collector
         image: ghcr.io/yum-ae/ble-collector:latest-arm64

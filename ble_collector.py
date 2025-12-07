@@ -15,7 +15,6 @@ registry = CollectorRegistry()
 temperature_gauge = Gauge('ble_temperature_celsius', 'Temperature from BLE beacon in Celsius', ['device_address'], registry=registry)
 humidity_gauge = Gauge('ble_humidity_percent', 'Humidity from BLE beacon in percent', ['device_address'], registry=registry)
 last_update_gauge = Gauge('ble_last_update_timestamp', 'Last update timestamp from BLE beacon', ['device_address'], registry=registry)
-    print(f"[INFO] Writing metrics for {device_address}: temp={temperature_float}°C, hum={humidity}%, ts={now}")
 
 
 def write_metrics(device_address, temperature_float, humidity):
