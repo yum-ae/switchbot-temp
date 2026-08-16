@@ -1,18 +1,19 @@
 apiVersion: monitoring.coreos.com/v1
 kind: PodMonitor
 metadata:
-  name: monitoring
+  name: ble-collector
   labels:
     release: prometheus
 spec:
   selector:
     matchLabels:
-      app: ble-collector
+      app.kubernetes.io/name: ble-collector
   namespaceSelector:
     matchNames:
-      - default
+      - ble-monitoring
   podMetricsEndpoints:
     - port: http-metrics
       path: /metrics
       interval: 30s
+      scrapeTimeout: 5s
       scheme: http

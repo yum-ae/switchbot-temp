@@ -1,0 +1,104 @@
+[tools]
+python = "3.11"
+uv = "latest"
+kustomize = "latest"
+kubectl = "latest"
+
+[tasks.setup]
+description = "Install dependencies and start the monitoring stack"
+depends = ["sync", "monitoring:up"]
+run = '''
+echo "Setup complete."
+echo "Prometheus: http://localhost:9090"
+echo "Grafana: http://localhost:3000 (admin/admin123)"
+echo "Run the collector with: mise run collector"
+'''
+
+[tasks.sync]
+description = "Sync Python and development dependencies"
+run = "uv sync --locked --python 3.11"
+
+[tasks.collector]
+description = "Run the BLE collector"
+depends = ["sync"]
+run = "uv run --locked ble-prometheus-collector"
+
+[tasks."monitoring:up"]
+description = "Start Prometheus and Grafana"
+run = "docker compose -f deploy/docker/docker-compose.yml up -d"
+
+[tasks."monitoring:down"]
+description = "Stop Prometheus and Grafana"
+run = "docker compose -f deploy/docker/docker-compose.yml down"
+
+[tasks.test]
+description = "Run the test suite"
+depends = ["sync"]
+run = "uv run --locked pytest"
+
+[tasks.lint]
+description = "Run static analysis"
+depends = ["sync"]
+run = "uv run --locked ruff check ."
+
+[tasks."compose:check"]
+description = "Validate the Docker Compose configuration"
+run = "docker compose -f deploy/docker/docker-compose.yml config --quiet"
+
+[tasks."image:build:arm64"]
+description = "Build and load the ARM64 collector image locally"
+run = '''
+docker buildx build \
+  --platform linux/arm64 \
+  --file deploy/docker/Dockerfile \
+  --tag "${BLE_IMAGE:-ghcr.io/yum-ae/ble-collector:latest-arm64}" \
+  --load \
+  .
+'''
+
+[tasks."image:push:arm64"]
+description = "Build and push the ARM64 collector image"
+run = '''
+docker buildx build \
+  --platform linux/arm64 \
+  --file deploy/docker/Dockerfile \
+  --tag "${BLE_IMAGE:-ghcr.io/yum-ae/ble-collector:latest-arm64}" \
+  --push \
+  .
+'''
+
+[tasks."k8s:build"]
+description = "Render the production Kubernetes manifests"
+run = "kustomize build deploy/kubernetes/overlays/production"
+
+[tasks."k8s:crd:install"]
+description = "Install the Prometheus Operator PodMonitor CRD"
+run = '''
+kubectl apply --server-side --field-manager=ble-collector-bootstrap \
+  -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/v0.93.0/example/prometheus-operator-crd/monitoring.coreos.com_podmonitors.yaml
+kubectl wait --for=condition=Established \
+  crd/podmonitors.monitoring.coreos.com \
+  --timeout=60s
+'''
+
+[tasks."k8s:crd:status"]
+description = "Show the installed PodMonitor CRD"
+run = "kubectl get crd podmonitors.monitoring.coreos.com"
+
+[tasks."k8s:diff"]
+description = "Show Kubernetes changes against the current cluster"
+run = "kubectl diff -k deploy/kubernetes/overlays/production"
+
+[tasks."k8s:deploy"]
+description = "Deploy the production overlay to the current cluster"
+run = "kubectl apply -k deploy/kubernetes/overlays/production"
+
+[tasks.check]
+description = "Run all project checks"
+depends = ["sync"]
+run = '''
+uv run --locked pytest
+uv run --locked ruff check .
+docker compose -f deploy/docker/docker-compose.yml config --quiet
+kustomize build deploy/kubernetes/overlays/production >/dev/null
+'''

@@ -5,13 +5,22 @@ description = "BLE beacon data collector for Prometheus"
 dependencies = [
     "bleak>=0.21.0",
     "prometheus-client>=0.18.0",
-    "asyncio-mqtt>=0.13.0",
 ]
+requires-python = ">=3.11"
 
+[project.scripts]
+ble-prometheus-collector = "ble_prometheus_collector.collector:main_sync"
 
-[tool.uv]
-dev-dependencies = [
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[dependency-groups]
+dev = [
     "pytest>=7.0.0",
     "black>=23.0.0",
     "ruff>=0.1.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]

@@ -1,0 +1,19 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: ble-collector-config
+    behavior: replace
+    envs:
+      - collector.env
+
+images:
+  - name: ghcr.io/yum-ae/ble-collector
+    newTag: latest-arm64
+
+labels:
+  - pairs:
+      app.kubernetes.io/environment: production

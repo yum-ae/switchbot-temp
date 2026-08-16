@@ -1,0 +1,90 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ble-collector
+spec:
+  replicas: 1
+  revisionHistoryLimit: 3
+  progressDeadlineSeconds: 300
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: ble-collector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: ble-collector
+    spec:
+      serviceAccountName: ble-collector
+      automountServiceAccountToken: false
+      terminationGracePeriodSeconds: 10
+      containers:
+        - name: collector
+          image: ghcr.io/yum-ae/ble-collector:latest-arm64
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http-metrics
+              containerPort: 8000
+              protocol: TCP
+          envFrom:
+            - configMapRef:
+                name: ble-collector-config
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: http-metrics
+            initialDelaySeconds: 2
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: http-metrics
+            initialDelaySeconds: 10
+            periodSeconds: 30
+            timeoutSeconds: 2
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 25m
+              memory: 48Mi
+            limits:
+              cpu: 250m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            # The collector talks to the host BlueZ daemon through /run/dbus.
+            # The runtime's default AppArmor profile blocks those D-Bus calls.
+            appArmorProfile:
+              type: Unconfined
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+              add: ["NET_ADMIN", "NET_RAW"]
+            seccompProfile:
+              type: RuntimeDefault
+          volumeMounts:
+            - name: dbus
+              mountPath: /run/dbus
+            - name: sys-bluetooth
+              mountPath: /sys/class/bluetooth
+              readOnly: true
+            - name: dev
+              mountPath: /dev
+      nodeSelector:
+        kubernetes.io/arch: arm64
+      volumes:
+        - name: dbus
+          hostPath:
+            path: /run/dbus
+            type: Directory
+        - name: sys-bluetooth
+          hostPath:
+            path: /sys/class/bluetooth
+            type: Directory
+        - name: dev
+          hostPath:
+            path: /dev
+            type: Directory
