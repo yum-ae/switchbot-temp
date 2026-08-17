@@ -6,9 +6,8 @@ SwitchBotのBLE広告から温度・湿度を取得し、Prometheus形式で公�
 
 ```text
 .
-├── config/                   # Prometheus / Grafanaの設定
 ├── deploy/
-│   ├── docker/               # Dockerイメージとローカル監視環境
+│   ├── docker/               # Dockerイメージとローカル監視環境、その設定
 │   └── kubernetes/           # Kubernetesマニフェスト
 ├── mise.toml                 # ツールバージョンと開発タスク
 ├── src/ble_prometheus_collector/
